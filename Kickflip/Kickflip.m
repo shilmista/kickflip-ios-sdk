@@ -38,7 +38,7 @@ static Kickflip *_kickflip = nil;
 
 - (id) init {
     if (self = [super init]) {
-        _maxBitrate = 2000 * 1000; // 2 Mbps
+        _maxBitrate = 500 * 1000; // 2 Mbps
         _useAdaptiveBitrate = YES;
     }
     return self;
