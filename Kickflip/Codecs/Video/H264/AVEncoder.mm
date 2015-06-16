@@ -95,6 +95,7 @@ static unsigned int to_host(unsigned char* p)
     _width = width;
     _bitrate = bitrate;
     NSString* path = [NSTemporaryDirectory() stringByAppendingPathComponent:@"params.mp4"];
+    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
     _headerWriter = [VideoEncoder encoderForPath:path Height:height andWidth:width bitrate:self.bitrate];
     _times = [NSMutableArray arrayWithCapacity:10];
     
