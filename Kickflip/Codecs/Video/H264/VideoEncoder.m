@@ -68,7 +68,7 @@
         }
         if (_writer.status == AVAssetWriterStatusFailed)
         {
-            NSLog(@"writer error %@", _writer.error.localizedDescription);
+            NSLog(@"writer error %@ %@", _writer.error.localizedDescription, _writer.error);
             return NO;
         }
         if (_writerInput.readyForMoreMediaData == YES)
