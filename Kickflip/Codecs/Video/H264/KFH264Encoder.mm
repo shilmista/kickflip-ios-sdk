@@ -26,6 +26,7 @@
 
 - (void) dealloc {
     [_encoder shutdown];
+    _encoder = nil;
 }
 
 - (void)shutdown {

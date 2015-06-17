@@ -501,6 +501,8 @@ static unsigned int to_host(unsigned char* p)
 //            }];
         }
         // !! wait for these to finish before returning and delete temp files
+        [self addObserver:self forKeyPath:NSStringFromSelector(@selector(bitrate)) options:0 context:AVEncoderContext];
+        [self removeObserver:self forKeyPath:NSStringFromSelector(@selector(bitrate)) context:AVEncoderContext];
     }
 }
 
