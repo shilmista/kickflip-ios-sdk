@@ -28,6 +28,11 @@
     [_encoder shutdown];
 }
 
+- (void)shutdown {
+    [_encoder shutdown];
+    _encoder = nil;
+}
+
 - (instancetype) initWithBitrate:(NSUInteger)bitrate width:(int)width height:(int)height {
     if (self = [super initWithBitrate:bitrate]) {
         [self initializeNALUnitStartCode];

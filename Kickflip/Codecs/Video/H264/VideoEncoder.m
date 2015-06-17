@@ -81,4 +81,9 @@
     return NO;
 }
 
+- (void)shutdown {
+    [_writer cancelWriting];
+    _writer = nil;
+}
+
 @end

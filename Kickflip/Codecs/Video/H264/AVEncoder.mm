@@ -486,15 +486,19 @@ static unsigned int to_host(unsigned char* p)
         _readSource = nil;
         if (_headerWriter)
         {
-            [_headerWriter finishWithCompletionHandler:^{
-                _headerWriter = nil;
-            }];
+            [_headerWriter shutdown];
+            _headerWriter = nil;
+//            [_headerWriter finishWithCompletionHandler:^{
+//                _headerWriter = nil;
+//            }];
         }
         if (_writer)
         {
-            [_writer finishWithCompletionHandler:^{
-                _writer = nil;
-            }];
+            [_writer shutdown];
+            _writer = nil;
+//            [_writer finishWithCompletionHandler:^{
+//                _writer = nil;
+//            }];
         }
         // !! wait for these to finish before returning and delete temp files
     }

@@ -28,5 +28,6 @@
 - (void) finishWithCompletionHandler:(void (^)(void))handler;
 - (BOOL) encodeFrame:(CMSampleBufferRef) sampleBuffer;
 
+- (void)shutdown;
 
 @end
