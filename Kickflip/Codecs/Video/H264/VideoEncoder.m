@@ -73,7 +73,7 @@
         }
         if (_writerInput.readyForMoreMediaData == YES)
         {
-            NSLog(@"writer status ready for more media data");
+//            NSLog(@"writer status ready for more media data");
             [_writerInput appendSampleBuffer:sampleBuffer];
             return YES;
         }
