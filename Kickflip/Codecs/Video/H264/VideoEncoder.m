@@ -61,6 +61,7 @@
     {
         if (_writer.status == AVAssetWriterStatusUnknown)
         {
+            NSLog(@"writer status unknown");
             CMTime startTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
             [_writer startWriting];
             [_writer startSessionAtSourceTime:startTime];
@@ -72,6 +73,7 @@
         }
         if (_writerInput.readyForMoreMediaData == YES)
         {
+            NSLog(@"writer status ready for more media data");
             [_writerInput appendSampleBuffer:sampleBuffer];
             return YES;
         }
