@@ -81,6 +81,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
 
 - (void) finishedRecording {
     self.isFinishedRecording = YES;
+    [self uploadNextSegment];
     if (!self.hasUploadedFinalManifest) {
         NSString *manifestSnapshot = [self manifestSnapshot];
         DDLogInfo(@"final manifest snapshot: %@", manifestSnapshot);
