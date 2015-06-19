@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "KFHLSUploader.h"
 
+static NSString * const kKFHLSMonitorFinishedUploadingSegmentsNotification = @"kKFHLSFinishedUploadingSegments";
 
 @interface KFHLSMonitor : NSObject <KFHLSUploaderDelegate>
 

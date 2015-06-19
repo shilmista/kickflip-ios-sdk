@@ -64,6 +64,8 @@ static KFHLSMonitor *_sharedMonitor = nil;
     dispatch_async(self.monitorQueue, ^{
         [self.hlsUploaders removeObjectForKey:uploader.directoryPath];
     });
+
+    [[NSNotificationCenter defaultCenter] postNotificationName:kKFHLSMonitorFinishedUploadingSegmentsNotification object:nil userInfo:nil];
 }
 
 @end
