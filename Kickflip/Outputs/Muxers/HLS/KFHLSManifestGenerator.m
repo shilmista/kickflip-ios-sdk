@@ -90,9 +90,10 @@
     NSString *segmentNumberString = [self stripToNumbers:segmentName];
     float duration = [extInfNumberString floatValue];
     NSInteger sequence = [segmentNumberString integerValue];
-    if (sequence > self.mediaSequence) {
+//    if (sequence > self.mediaSequence) {
+    NSLog(@"appending %@ %d", segmentName, sequence);
         [self appendFileName:segmentName duration:duration mediaSequence:sequence];
-    }
+//    }
 }
 
 - (NSString*) manifestString {
