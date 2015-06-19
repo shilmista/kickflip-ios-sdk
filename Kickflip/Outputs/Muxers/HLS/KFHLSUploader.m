@@ -168,7 +168,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     NSLog(@"attempting to upload last segment with name: %@", lastFileName);
     
     NSString *uploadState = [_files objectForKey:lastFileName];
-    if ([uploadState isEqualToString:kUploadStateQueued]) {
+    if ([uploadState isEqualToString:kUploadStateQueued] || [uploadState isEqualToString:kUploadStateFailed]) { // retrying
         NSLog(@"queued last segment");
         NSDictionary *segmentInfo = @{kFileNameKey: lastFileName,
                                       kFileStartDateKey: [NSDate date]};
