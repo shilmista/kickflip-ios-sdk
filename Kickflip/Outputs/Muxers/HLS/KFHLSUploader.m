@@ -72,7 +72,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     self.isFinishedRecording = YES;
     
     // upload final segment -
-    [self uploadLastSegment];
+    [self uploadRemainingSegments];
 }
 
 - (void) setUseSSL:(BOOL)useSSL {
@@ -130,6 +130,17 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     }
 }
 
+- (void)uploadRemainingSegments {
+    // if there is something queued right now, it should go ahead and upload the rest of the segments
+    if ([[self.queuedSegments allValues] count] > 0) {
+        NSLog(@"it should upload the rest of the segments %@", self.queuedSegments);
+        [self uploadNextSegment];
+    }
+    else {
+        [self uploadLastSegment];
+    }
+}
+
 - (void)uploadLastSegment {
     NSString *lastFileName;
     NSInteger index = -1;
@@ -168,6 +179,9 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     }
     else {
         NSLog(@"already added to files queue??? %@", uploadState);
+        
+        _nextSegmentIndexToUpload = (NSUInteger) index;
+        [self uploadNextSegment];
     }
 }
 
