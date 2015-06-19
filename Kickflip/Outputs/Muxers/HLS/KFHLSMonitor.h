@@ -9,9 +9,15 @@
 #import <Foundation/Foundation.h>
 #import "KFHLSUploader.h"
 
+@protocol KFHLSMonitorDelegate <NSObject>
+- (void)monitor:(KFHLSMonitor *)monitor didFinishUploading:(id)sender;
+@end
+
 static NSString * const kKFHLSMonitorFinishedUploadingSegmentsNotification = @"kKFHLSFinishedUploadingSegments";
 
 @interface KFHLSMonitor : NSObject <KFHLSUploaderDelegate>
+
+@property (nonatomic, weak) id <KFHLSMonitorDelegate> delegate;
 
 + (KFHLSMonitor*) sharedMonitor;
 
