@@ -15,6 +15,8 @@
 
 #import "DDLog.h"
 
+#define DEBUG 1
+
 #ifdef DEBUG
 static const int ddKickflipLogLevel = LOG_LEVEL_VERBOSE;
 #else
