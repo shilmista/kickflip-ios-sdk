@@ -9,6 +9,8 @@
 #import <Foundation/Foundation.h>
 #import "KFHLSUploader.h"
 
+@class KFHLSMonitor;
+
 @protocol KFHLSMonitorDelegate <NSObject>
 - (void)monitor:(KFHLSMonitor *)monitor didFinishUploading:(id)sender;
 @end
