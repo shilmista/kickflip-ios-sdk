@@ -172,7 +172,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         NSLog(@"queued last segment");
         NSDictionary *segmentInfo = @{kFileNameKey: lastFileName,
                                       kFileStartDateKey: [NSDate date]};
-        DDLogInfo(@"new ts file detected: %@", lastFileName);
+        [_files setObject:kUploadStateQueued forKey:lastFileName];
         [_queuedSegments setObject:segmentInfo forKey:@(index)];
         [self uploadNextSegment];
     }
@@ -212,7 +212,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
                 NSUInteger segmentIndex = [self indexForFilePrefix:filePrefix];
                 NSDictionary *segmentInfo = @{kFileNameKey: fileName,
                                               kFileStartDateKey: [NSDate date]};
-                DDLogInfo(@"new ts file detected: %@", fileName);
+                NSLog(@"new ts file detected: %@", fileName);
                 [_files setObject:kUploadStateQueued forKey:fileName];
                 [_queuedSegments setObject:segmentInfo forKey:@(segmentIndex)];
                 [self uploadNextSegment];
