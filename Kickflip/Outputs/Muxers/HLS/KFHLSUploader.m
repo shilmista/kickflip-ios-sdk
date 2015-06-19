@@ -92,42 +92,36 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     
     // Skip uploading files that are currently being written
     if (tsFileCount == 1 && !self.isFinishedRecording) {
-        DDLogInfo(@"Skipping upload of ts file currently being recorded: %@ %@", segmentInfo, contents);
+        NSLog(@"Skipping upload of ts file currently being recorded: %@ %@", segmentInfo, contents);
         return;
     }
     
     NSString *fileName = [segmentInfo objectForKey:kFileNameKey];
     NSString *fileUploadState = [_files objectForKey:fileName];
     if (![fileUploadState isEqualToString:kUploadStateQueued]) {
-        DDLogVerbose(@"Trying to upload file that isn't queued (%@): %@", fileUploadState, segmentInfo);
+        NSLog(@"Trying to upload file that isn't queued (%@): %@", fileUploadState, segmentInfo);
         return;
     }
     
-    if ([fileUploadState isEqualToString:kUploadStateUploading]) {
-        NSLog(@"already uploading");
-        return;
-    }
-    else {
-        [_files setObject:kUploadStateUploading forKey:fileName];
-        NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
-        NSString *key = [self awsKeyForStream:self.stream fileName:fileName];
-        
-        AWSS3TransferManagerUploadRequest *uploadRequest = [AWSS3TransferManagerUploadRequest new];
-        uploadRequest.bucket = self.stream.bucketName;
-        uploadRequest.key = key;
-        uploadRequest.body = [NSURL fileURLWithPath:filePath];
-        uploadRequest.ACL = AWSS3ObjectCannedACLPublicRead;
-        
-        [[self.transferManager upload:uploadRequest] continueWithBlock:^id(BFTask *task) {
-            if (task.error) {
-                [self s3RequestFailedForFileName:fileName withError:task.error];
-            }
-            else {
-                [self s3RequestCompletedForFileName:fileName];
-            }
-            return nil;
-        }];
-    }
+    [_files setObject:kUploadStateUploading forKey:fileName];
+    NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
+    NSString *key = [self awsKeyForStream:self.stream fileName:fileName];
+    
+    AWSS3TransferManagerUploadRequest *uploadRequest = [AWSS3TransferManagerUploadRequest new];
+    uploadRequest.bucket = self.stream.bucketName;
+    uploadRequest.key = key;
+    uploadRequest.body = [NSURL fileURLWithPath:filePath];
+    uploadRequest.ACL = AWSS3ObjectCannedACLPublicRead;
+    
+    [[self.transferManager upload:uploadRequest] continueWithBlock:^id(BFTask *task) {
+        if (task.error) {
+            [self s3RequestFailedForFileName:fileName withError:task.error];
+        }
+        else {
+            [self s3RequestCompletedForFileName:fileName];
+        }
+        return nil;
+    }];
 }
 
 - (void)uploadRemainingSegments {
@@ -288,7 +282,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
 {
     dispatch_async(_scanningQueue, ^{
         [_files setObject:kUploadStateFailed forKey:fileName];
-        DDLogError(@"Failed to upload request, requeuing %@: %@", fileName, error.description);
+        NSLog(@"Failed to upload request, requeuing %@: %@", fileName, error.description);
         [self uploadNextSegment];
     });
 }
