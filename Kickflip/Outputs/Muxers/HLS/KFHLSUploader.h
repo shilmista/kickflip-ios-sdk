@@ -29,11 +29,8 @@
 @property (nonatomic) dispatch_queue_t callbackQueue;
 @property (nonatomic, strong) KFS3Stream *stream;
 @property (nonatomic) BOOL useSSL;
-@property (nonatomic, strong) KFHLSManifestGenerator *manifestGenerator;
 
 - (id) initWithDirectoryPath:(NSString*)directoryPath stream:(KFS3Stream*)stream;
 - (void) finishedRecording;
-
-- (NSURL*) manifestURL;
 
 @end

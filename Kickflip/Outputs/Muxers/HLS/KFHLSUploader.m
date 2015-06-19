@@ -14,12 +14,8 @@
 #import "KFAWSCredentialsProvider.h"
 #import <AWSS3/AWSS3.h>
 
-static NSString * const kManifestKey =  @"manifest";
 static NSString * const kFileNameKey = @"fileName";
 static NSString * const kFileStartDateKey = @"startDate";
-
-static NSString * const kVODManifestFileName = @"vod.m3u8";
-
 
 static NSString * const kUploadStateQueued = @"queued";
 static NSString * const kUploadStateFinished = @"finished";
@@ -38,11 +34,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
 @property (nonatomic, strong) AWSS3 *s3;
 @property (nonatomic, strong) KFDirectoryWatcher *directoryWatcher;
 @property (atomic, strong) NSMutableDictionary *files;
-@property (nonatomic, strong) NSString *manifestPath;
-@property (nonatomic) BOOL manifestReady;
-@property (nonatomic, strong) NSString *finalManifestString;
 @property (nonatomic) BOOL isFinishedRecording;
-@property (nonatomic) BOOL hasUploadedFinalManifest;
 @end
 
 @implementation KFHLSUploader
@@ -60,7 +52,6 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         _queuedSegments = [NSMutableDictionary dictionaryWithCapacity:5];
         _numbersOffset = 0;
         _nextSegmentIndexToUpload = 0;
-        _manifestReady = NO;
         _isFinishedRecording = NO;
         
         AWSRegionType region = [KFAWSCredentialsProvider regionTypeForRegion:stream.awsRegion];
@@ -73,8 +64,6 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         
         self.transferManager = [AWSS3TransferManager S3TransferManagerForKey:kKFS3TransferManagerKey];
         self.s3 = [AWSS3 S3ForKey:kKFS3Key];
-        
-        //        self.manifestGenerator = [[KFHLSManifestGenerator alloc] initWithTargetDuration:5 playlistType:KFHLSManifestPlaylistTypeVOD];
     }
     return self;
 }
@@ -83,17 +72,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     self.isFinishedRecording = YES;
     
     // upload final segment -
-    [self directoryDidChange:nil];
-    
-    //    [self uploadNextSegment];
-    //    if (!self.hasUploadedFinalManifest) {
-    //        NSString *manifestSnapshot = [self manifestSnapshot];
-    //        DDLogInfo(@"final manifest snapshot: %@", manifestSnapshot);
-    //        [self.manifestGenerator appendFromLiveManifest:manifestSnapshot];
-    //        [self.manifestGenerator finalizeManifest];
-    //        NSString *manifestString = [self.manifestGenerator manifestString];
-    //        [self updateManifestWithString:manifestString manifestName:kVODManifestFileName];
-    //    }
+    [self uploadLastSegment];
 }
 
 - (void) setUseSSL:(BOOL)useSSL {
@@ -123,101 +102,13 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         DDLogVerbose(@"Trying to upload file that isn't queued (%@): %@", fileUploadState, segmentInfo);
         return;
     }
-    [_files setObject:kUploadStateUploading forKey:fileName];
-    NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
-    NSString *key = [self awsKeyForStream:self.stream fileName:fileName];
     
-    AWSS3TransferManagerUploadRequest *uploadRequest = [AWSS3TransferManagerUploadRequest new];
-    uploadRequest.bucket = self.stream.bucketName;
-    uploadRequest.key = key;
-    uploadRequest.body = [NSURL fileURLWithPath:filePath];
-    uploadRequest.ACL = AWSS3ObjectCannedACLPublicRead;
-    
-    [[self.transferManager upload:uploadRequest] continueWithBlock:^id(BFTask *task) {
-        if (task.error) {
-            [self s3RequestFailedForFileName:fileName withError:task.error];
-        } else {
-            [self s3RequestCompletedForFileName:fileName];
-        }
-        return nil;
-    }];
-    
-}
-
-- (NSString*) awsKeyForStream:(KFS3Stream*)stream fileName:(NSString*)fileName {
-    return [NSString stringWithFormat:@"%@%@", stream.awsPrefix, fileName];
-}
-
-- (void) updateManifestWithString:(NSString*)manifestString manifestName:(NSString*)manifestName {
-    NSData *data = [manifestString dataUsingEncoding:NSUTF8StringEncoding];
-    DDLogVerbose(@"New manifest:\n%@", manifestString);
-    NSString *key = [self awsKeyForStream:self.stream fileName:manifestName];
-    
-    AWSS3PutObjectRequest *uploadRequest = [AWSS3TransferManagerUploadRequest new];
-    uploadRequest.bucket = self.stream.bucketName;
-    uploadRequest.key = key;
-    uploadRequest.body = data;
-    uploadRequest.ACL = AWSS3ObjectCannedACLPublicRead;
-    uploadRequest.cacheControl = @"max-age=0";
-    uploadRequest.contentLength = @(data.length);
-    
-    [[self.s3 putObject:uploadRequest] continueWithBlock:^id(BFTask *task) {
-        if (task.error) {
-            [self s3RequestFailedForFileName:manifestName withError:task.error];
-        } else {
-            [self s3RequestCompletedForFileName:manifestName];
-        }
-        return nil;
-    }];
-}
-
-- (void) directoryDidChange:(KFDirectoryWatcher *)folderWatcher {
-    dispatch_async(_scanningQueue, ^{
-        NSError *error = nil;
-        NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:_directoryPath error:&error];
-        DDLogVerbose(@"Directory changed, fileCount: %lu", (unsigned long)files.count);
-        if (error) {
-            DDLogError(@"Error listing directory contents");
-        }
-        //        if (!_manifestPath) {
-        //            [self initializeManifestPathFromFiles:files];
-        //        }
-        [self detectNewSegmentsFromFiles:files];
-    });
-}
-
-- (void) detectNewSegmentsFromFiles:(NSArray*)files {
-    //    if (!_manifestPath) {
-    //        DDLogVerbose(@"Manifest path not yet available");
-    //        return;
-    //    }
-    [files enumerateObjectsUsingBlock:^(NSString *fileName, NSUInteger idx, BOOL *stop) {
-        NSArray *components = [fileName componentsSeparatedByString:@"."];
-        NSString *filePrefix = [components firstObject];
-        NSString *fileExtension = [components lastObject];
-        if ([fileExtension isEqualToString:@"ts"]) {
-            NSString *uploadState = [_files objectForKey:fileName];
-            if (!uploadState) {
-                //                NSString *manifestSnapshot = [self manifestSnapshot];
-                //                [self.manifestGenerator appendFromLiveManifest:manifestSnapshot];
-                NSUInteger segmentIndex = [self indexForFilePrefix:filePrefix];
-                NSDictionary *segmentInfo = @{kManifestKey: @"",
-                                              kFileNameKey: fileName,
-                                              kFileStartDateKey: [NSDate date]};
-                DDLogInfo(@"new ts file detected: %@", fileName);
-                [_files setObject:kUploadStateQueued forKey:fileName];
-                [_queuedSegments setObject:segmentInfo forKey:@(segmentIndex)];
-                [self uploadNextSegment];
-            }
-        } else if ([fileExtension isEqualToString:@"jpg"]) {
-            [self uploadThumbnail:fileName];
-        }
-    }];
-}
-
-- (void) uploadThumbnail:(NSString*)fileName {
-    NSString *uploadState = [_files objectForKey:fileName];
-    if (![uploadState isEqualToString:kUploadStateFinished]) {
+    if ([fileUploadState isEqualToString:kUploadStateUploading]) {
+        NSLog(@"already uploading");
+        return;
+    }
+    else {
+        [_files setObject:kUploadStateUploading forKey:fileName];
         NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
         NSString *key = [self awsKeyForStream:self.stream fileName:fileName];
         
@@ -230,7 +121,8 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         [[self.transferManager upload:uploadRequest] continueWithBlock:^id(BFTask *task) {
             if (task.error) {
                 [self s3RequestFailedForFileName:fileName withError:task.error];
-            } else {
+            }
+            else {
                 [self s3RequestCompletedForFileName:fileName];
             }
             return nil;
@@ -238,21 +130,77 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     }
 }
 
-- (void) initializeManifestPathFromFiles:(NSArray*)files {
-    [files enumerateObjectsUsingBlock:^(NSString *fileName, NSUInteger idx, BOOL *stop) {
-        if ([[fileName pathExtension] isEqualToString:@"m3u8"]) {
+- (void)uploadLastSegment {
+    NSString *lastFileName;
+    NSInteger index = -1;
+    NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+    formatter.numberStyle = NSNumberFormatterDecimalStyle;
+    
+    // first, queue the last segment
+    NSArray *contents = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.directoryPath error:nil];
+    NSUInteger tsFileCount = 0;
+    for (NSString *fileName in contents) {
+        if ([[fileName pathExtension] isEqualToString:@"ts"]) {
             NSArray *components = [fileName componentsSeparatedByString:@"."];
             NSString *filePrefix = [components firstObject];
-            _manifestPath = [_directoryPath stringByAppendingPathComponent:fileName];
-            _numbersOffset = filePrefix.length;
-            NSAssert(_numbersOffset > 0, nil);
-            *stop = YES;
+            
+            NSCharacterSet *nonDigitCharacterSet = [[NSCharacterSet decimalDigitCharacterSet] invertedSet];
+            NSInteger currentIndex = [formatter numberFromString:[[filePrefix componentsSeparatedByCharactersInSet:nonDigitCharacterSet] componentsJoinedByString:@""]].integerValue;
+            if (currentIndex > index)
+                index = currentIndex;
+            
+            tsFileCount++;
         }
-    }];
+    }
+    
+    lastFileName = [NSString stringWithFormat:@"index%d.ts", index];
+    
+    NSString *uploadState = [_files objectForKey:lastFileName];
+    if (!uploadState) {
+        NSDictionary *segmentInfo = @{kFileNameKey: lastFileName,
+                                      kFileStartDateKey: [NSDate date]};
+        DDLogInfo(@"new ts file detected: %@", lastFileName);
+        [_files setObject:kUploadStateQueued forKey:lastFileName];
+        [_queuedSegments setObject:segmentInfo forKey:@(index)];
+        [self uploadNextSegment];
+    }
 }
 
-- (NSString*) manifestSnapshot {
-    return [NSString stringWithContentsOfFile:_manifestPath encoding:NSUTF8StringEncoding error:nil];
+- (NSString*) awsKeyForStream:(KFS3Stream*)stream fileName:(NSString*)fileName {
+    return [NSString stringWithFormat:@"%@%@", stream.awsPrefix, fileName];
+}
+
+- (void) directoryDidChange:(KFDirectoryWatcher *)folderWatcher {
+    dispatch_async(_scanningQueue, ^{
+        NSError *error = nil;
+        NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:_directoryPath error:&error];
+        DDLogVerbose(@"Directory changed, fileCount: %lu", (unsigned long)files.count);
+        if (error) {
+            DDLogError(@"Error listing directory contents");
+        }
+        
+        [self detectNewSegmentsFromFiles:files];
+    });
+}
+
+- (void) detectNewSegmentsFromFiles:(NSArray*)files {
+    [files enumerateObjectsUsingBlock:^(NSString *fileName, NSUInteger idx, BOOL *stop) {
+        NSArray *components = [fileName componentsSeparatedByString:@"."];
+        NSString *filePrefix = [components firstObject];
+        NSString *fileExtension = [components lastObject];
+        if ([fileExtension isEqualToString:@"ts"]) {
+            NSString *uploadState = [_files objectForKey:fileName];
+            if (!uploadState) {
+                NSUInteger segmentIndex = [self indexForFilePrefix:filePrefix];
+                NSDictionary *segmentInfo = @{kFileNameKey: fileName,
+                                              kFileStartDateKey: [NSDate date]};
+                DDLogInfo(@"new ts file detected: %@", fileName);
+                [_files setObject:kUploadStateQueued forKey:fileName];
+                [_queuedSegments setObject:segmentInfo forKey:@(segmentIndex)];
+                [self uploadNextSegment];
+            }
+        }
+    }];
 }
 
 - (NSUInteger) indexForFilePrefix:(NSString*)filePrefix {
@@ -270,42 +218,13 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     return [NSURL URLWithString:urlString];
 }
 
-- (NSURL*) manifestURL {
-    NSString *manifestName = nil;
-    if (self.isFinishedRecording) {
-        manifestName = kVODManifestFileName;
-    } else {
-        manifestName = [_manifestPath lastPathComponent];
-    }
-    return [self urlWithFileName:manifestName];
-}
-
 -(void)s3RequestCompletedForFileName:(NSString*)fileName
 {
     dispatch_async(_scanningQueue, ^{
-        if ([fileName.pathExtension isEqualToString:@"m3u8"]) {
-            /*            dispatch_async(self.callbackQueue, ^{
-             if (!_manifestReady) {
-             if (self.delegate && [self.delegate respondsToSelector:@selector(uploader:liveManifestReadyAtURL:)]) {
-             [self.delegate uploader:self liveManifestReadyAtURL:[self manifestURL]];
-             }
-             _manifestReady = YES;
-             }
-             if (self.isFinishedRecording && _queuedSegments.count == 0) {
-             self.hasUploadedFinalManifest = YES;
-             if (self.delegate && [self.delegate respondsToSelector:@selector(uploader:vodManifestReadyAtURL:)]) {
-             [self.delegate uploader:self vodManifestReadyAtURL:[self manifestURL]];
-             }
-             if (self.delegate && [self.delegate respondsToSelector:@selector(uploaderHasFinished:)]) {
-             [self.delegate uploaderHasFinished:self];
-             }
-             }
-             });*/
-        } else if ([fileName.pathExtension isEqualToString:@"ts"]) {
+        if ([fileName.pathExtension isEqualToString:@"ts"]) {
             NSDictionary *segmentInfo = [_queuedSegments objectForKey:@(_nextSegmentIndexToUpload)];
             NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
             
-            //            NSString *manifest = [segmentInfo objectForKey:kManifestKey];
             NSDate *uploadStartDate = [segmentInfo objectForKey:kFileStartDateKey];
             
             NSDate *uploadFinishDate = [NSDate date];
@@ -328,7 +247,6 @@ static NSString * const kKFS3Key = @"kKFS3Key";
             }
             [_queuedSegments removeObjectForKey:@(_nextSegmentIndexToUpload)];
             NSUInteger queuedSegmentsCount = _queuedSegments.count;
-            //            [self updateManifestWithString:manifest manifestName:@"index.m3u8"];
             if (self.isFinishedRecording && _queuedSegments.count == 0) {
                 if (self.delegate && [self.delegate respondsToSelector:@selector(uploaderHasFinished:)]) {
                     [self.delegate uploaderHasFinished:self];
@@ -344,30 +262,6 @@ static NSString * const kKFS3Key = @"kKFS3Key";
                 _nextSegmentIndexToUpload++;
                 [self uploadNextSegment];
             }
-            
-        } else if ([fileName.pathExtension isEqualToString:@"jpg"]) {
-            [self.files setObject:kUploadStateFinished forKey:fileName];
-            if (self.delegate && [self.delegate respondsToSelector:@selector(uploader:thumbnailReadyAtURL:)]) {
-                NSURL *url = [self urlWithFileName:fileName];
-                dispatch_async(self.callbackQueue, ^{
-                    [self.delegate uploader:self thumbnailReadyAtURL:url];
-                });
-            }
-            NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
-            
-            NSError *error = nil;
-            [[NSFileManager defaultManager] removeItemAtPath:filePath error:&error];
-            if (error) {
-                DDLogError(@"Error removing thumbnail: %@", error.description);
-            }
-            self.stream.thumbnailURL = [self urlWithFileName:fileName];
-            [[KFAPIClient sharedClient] updateMetadataForStream:self.stream callbackBlock:^(KFStream *updatedStream, NSError *error) {
-                if (error) {
-                    DDLogError(@"Error updating stream thumbnail: %@", error);
-                } else {
-                    DDLogInfo(@"Updated stream thumbnail: %@", updatedStream.thumbnailURL);
-                }
-            }];
         }
     });
 }
