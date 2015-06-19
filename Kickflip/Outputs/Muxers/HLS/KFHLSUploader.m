@@ -81,7 +81,11 @@ static NSString * const kKFS3Key = @"kKFS3Key";
 
 - (void) finishedRecording {
     self.isFinishedRecording = YES;
-    [self uploadNextSegment];
+    
+    // upload final segment -
+    [self directoryDidChange:nil];
+    
+    //    [self uploadNextSegment];
     //    if (!self.hasUploadedFinalManifest) {
     //        NSString *manifestSnapshot = [self manifestSnapshot];
     //        DDLogInfo(@"final manifest snapshot: %@", manifestSnapshot);
@@ -104,7 +108,6 @@ static NSString * const kKFS3Key = @"kKFS3Key";
             tsFileCount++;
         }
     }
-    
     
     NSDictionary *segmentInfo = [_queuedSegments objectForKey:@(_nextSegmentIndexToUpload)];
     
@@ -201,7 +204,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
                 NSDictionary *segmentInfo = @{kManifestKey: @"",
                                               kFileNameKey: fileName,
                                               kFileStartDateKey: [NSDate date]};
-                DDLogVerbose(@"new ts file detected: %@", fileName);
+                DDLogInfo(@"new ts file detected: %@", fileName);
                 [_files setObject:kUploadStateQueued forKey:fileName];
                 [_queuedSegments setObject:segmentInfo forKey:@(segmentIndex)];
                 [self uploadNextSegment];
@@ -327,23 +330,19 @@ static NSString * const kKFS3Key = @"kKFS3Key";
             NSUInteger queuedSegmentsCount = _queuedSegments.count;
             //            [self updateManifestWithString:manifest manifestName:@"index.m3u8"];
             if (self.isFinishedRecording && _queuedSegments.count == 0) {
-                self.hasUploadedFinalManifest = YES;
-                if (self.delegate && [self.delegate respondsToSelector:@selector(uploader:vodManifestReadyAtURL:)]) {
-                    [self.delegate uploader:self vodManifestReadyAtURL:[self manifestURL]];
-                }
                 if (self.delegate && [self.delegate respondsToSelector:@selector(uploaderHasFinished:)]) {
                     [self.delegate uploaderHasFinished:self];
                 }
             }
             else {
-                _nextSegmentIndexToUpload++;
-                [self uploadNextSegment];
                 if (self.delegate && [self.delegate respondsToSelector:@selector(uploader:didUploadSegmentAtURL:uploadSpeed:numberOfQueuedSegments:)]) {
                     NSURL *url = [self urlWithFileName:fileName];
                     dispatch_async(self.callbackQueue, ^{
                         [self.delegate uploader:self didUploadSegmentAtURL:url uploadSpeed:KBps numberOfQueuedSegments:queuedSegmentsCount];
                     });
                 }
+                _nextSegmentIndexToUpload++;
+                [self uploadNextSegment];
             }
             
         } else if ([fileName.pathExtension isEqualToString:@"jpg"]) {
