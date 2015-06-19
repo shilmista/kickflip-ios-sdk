@@ -53,15 +53,15 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         _numbersOffset = 0;
         _nextSegmentIndexToUpload = 0;
         _isFinishedRecording = NO;
-        
+
         AWSRegionType region = [KFAWSCredentialsProvider regionTypeForRegion:stream.awsRegion];
         KFAWSCredentialsProvider *awsCredentialsProvider = [[KFAWSCredentialsProvider alloc] initWithStream:stream];
         AWSServiceConfiguration *configuration = [[AWSServiceConfiguration alloc] initWithRegion:region
                                                                              credentialsProvider:awsCredentialsProvider];
-        
+
         [AWSS3TransferManager registerS3TransferManagerWithConfiguration:configuration forKey:kKFS3TransferManagerKey];
         [AWSS3 registerS3WithConfiguration:configuration forKey:kKFS3Key];
-        
+
         self.transferManager = [AWSS3TransferManager S3TransferManagerForKey:kKFS3TransferManagerKey];
         self.s3 = [AWSS3 S3ForKey:kKFS3Key];
     }
@@ -70,7 +70,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
 
 - (void) finishedRecording {
     self.isFinishedRecording = YES;
-    
+
     // upload final segment -
     [self uploadRemainingSegments];
 }
@@ -87,32 +87,33 @@ static NSString * const kKFS3Key = @"kKFS3Key";
             tsFileCount++;
         }
     }
-    
+
     NSDictionary *segmentInfo = [_queuedSegments objectForKey:@(_nextSegmentIndexToUpload)];
-    
+
     // Skip uploading files that are currently being written
     if (tsFileCount == 1 && !self.isFinishedRecording) {
         NSLog(@"Skipping upload of ts file currently being recorded: %@ %@", segmentInfo, contents);
         return;
     }
-    
+
     NSString *fileName = [segmentInfo objectForKey:kFileNameKey];
     NSString *fileUploadState = [_files objectForKey:fileName];
     if (![fileUploadState isEqualToString:kUploadStateQueued]) {
         NSLog(@"Trying to upload file that isn't queued (%@): %@", fileUploadState, segmentInfo);
         return;
     }
-    
+
     [_files setObject:kUploadStateUploading forKey:fileName];
     NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
     NSString *key = [self awsKeyForStream:self.stream fileName:fileName];
-    
+
     AWSS3TransferManagerUploadRequest *uploadRequest = [AWSS3TransferManagerUploadRequest new];
     uploadRequest.bucket = self.stream.bucketName;
     uploadRequest.key = key;
     uploadRequest.body = [NSURL fileURLWithPath:filePath];
     uploadRequest.ACL = AWSS3ObjectCannedACLPublicRead;
-    
+
+    NSLog(@"uploading segment: %@", segmentInfo);
     [[self.transferManager upload:uploadRequest] continueWithBlock:^id(BFTask *task) {
         if (task.error) {
             [self s3RequestFailedForFileName:fileName withError:task.error];
@@ -140,7 +141,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     NSInteger index = -1;
     NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
     formatter.numberStyle = NSNumberFormatterDecimalStyle;
-    
+
     // first, queue the last segment
     NSArray *contents = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.directoryPath error:nil];
     NSUInteger tsFileCount = 0;
@@ -148,31 +149,31 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         if ([[fileName pathExtension] isEqualToString:@"ts"]) {
             NSArray *components = [fileName componentsSeparatedByString:@"."];
             NSString *filePrefix = [components firstObject];
-            
+
             NSCharacterSet *nonDigitCharacterSet = [[NSCharacterSet decimalDigitCharacterSet] invertedSet];
             NSInteger currentIndex = [formatter numberFromString:[[filePrefix componentsSeparatedByCharactersInSet:nonDigitCharacterSet] componentsJoinedByString:@""]].integerValue;
             if (currentIndex > index)
                 index = currentIndex;
-            
+
             tsFileCount++;
         }
     }
-    
+
     lastFileName = [NSString stringWithFormat:@"index%d.ts", index];
     NSLog(@"attempting to upload last segment with name: %@", lastFileName);
-    
+
     NSString *uploadState = [_files objectForKey:lastFileName];
     if ([uploadState isEqualToString:kUploadStateQueued] || [uploadState isEqualToString:kUploadStateFailed]) { // retrying
         NSLog(@"queued last segment");
         NSDictionary *segmentInfo = @{kFileNameKey: lastFileName,
-                                      kFileStartDateKey: [NSDate date]};
+                kFileStartDateKey: [NSDate date]};
         [_files setObject:kUploadStateQueued forKey:lastFileName];
         [_queuedSegments setObject:segmentInfo forKey:@(index)];
         [self uploadNextSegment];
     }
     else {
         NSLog(@"already added to files queue??? %@", uploadState);
-        
+
         _nextSegmentIndexToUpload = (NSUInteger) index;
         [self uploadNextSegment];
     }
@@ -190,7 +191,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         if (error) {
             DDLogError(@"Error listing directory contents");
         }
-        
+
         [self detectNewSegmentsFromFiles:files];
     });
 }
@@ -205,7 +206,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
             if (!uploadState) {
                 NSUInteger segmentIndex = [self indexForFilePrefix:filePrefix];
                 NSDictionary *segmentInfo = @{kFileNameKey: fileName,
-                                              kFileStartDateKey: [NSDate date]};
+                        kFileStartDateKey: [NSDate date]};
                 NSLog(@"new ts file detected: %@", fileName);
                 [_files setObject:kUploadStateQueued forKey:fileName];
                 [_queuedSegments setObject:segmentInfo forKey:@(segmentIndex)];
@@ -236,26 +237,26 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         if ([fileName.pathExtension isEqualToString:@"ts"]) {
             NSDictionary *segmentInfo = [_queuedSegments objectForKey:@(_nextSegmentIndexToUpload)];
             NSString *filePath = [_directoryPath stringByAppendingPathComponent:fileName];
-            
+
             NSDate *uploadStartDate = [segmentInfo objectForKey:kFileStartDateKey];
-            
+
             NSDate *uploadFinishDate = [NSDate date];
-            
+
             NSError *error = nil;
             NSDictionary *fileStats = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:&error];
             if (error) {
-                DDLogError(@"Error getting stats of path %@: %@", filePath, error);
+                NSLog(@"Error getting stats of path %@: %@", filePath, error);
             }
             uint64_t fileSize = [fileStats fileSize];
-            
+
             NSTimeInterval timeToUpload = [uploadFinishDate timeIntervalSinceDate:uploadStartDate];
             double bytesPerSecond = fileSize / timeToUpload;
             double KBps = bytesPerSecond / 1024;
             [_files setObject:kUploadStateFinished forKey:fileName];
-            
+
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:&error];
             if (error) {
-                DDLogError(@"Error removing uploaded segment: %@", error.description);
+                NSLog(@"Error removing uploaded segment: %@", error.description);
             }
             [_queuedSegments removeObjectForKey:@(_nextSegmentIndexToUpload)];
             NSUInteger queuedSegmentsCount = _queuedSegments.count;

@@ -60,7 +60,7 @@ static KFHLSMonitor *_sharedMonitor = nil;
 }
 
 - (void) uploaderHasFinished:(KFHLSUploader*)uploader {
-    DDLogInfo(@"Uploader finished, switched to VOD manifest");
+    NSLog(@"Uploader finished, switched to VOD manifest");
     dispatch_async(self.monitorQueue, ^{
         [self.hlsUploaders removeObjectForKey:uploader.directoryPath];
     });
