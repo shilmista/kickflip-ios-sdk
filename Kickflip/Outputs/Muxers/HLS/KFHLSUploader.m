@@ -168,12 +168,11 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     NSLog(@"attempting to upload last segment with name: %@", lastFileName);
     
     NSString *uploadState = [_files objectForKey:lastFileName];
-    if (!uploadState) {
+    if ([uploadState isEqualToString:kUploadStateQueued]) {
         NSLog(@"queued last segment");
         NSDictionary *segmentInfo = @{kFileNameKey: lastFileName,
                                       kFileStartDateKey: [NSDate date]};
         DDLogInfo(@"new ts file detected: %@", lastFileName);
-        [_files setObject:kUploadStateQueued forKey:lastFileName];
         [_queuedSegments setObject:segmentInfo forKey:@(index)];
         [self uploadNextSegment];
     }
