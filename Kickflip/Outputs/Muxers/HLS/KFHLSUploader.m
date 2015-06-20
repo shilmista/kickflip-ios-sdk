@@ -50,7 +50,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
         _scanningQueue = dispatch_queue_create("KFHLSUploader Scanning Queue", DISPATCH_QUEUE_SERIAL);
         _callbackQueue = dispatch_queue_create("KFHLSUploader Callback Queue", DISPATCH_QUEUE_SERIAL);
         _queuedSegments = [NSMutableDictionary dictionaryWithCapacity:5];
-        _numbersOffset = 0;
+        _numbersOffset = @"index".length;
         _nextSegmentIndexToUpload = 0;
         _isFinishedRecording = NO;
 
