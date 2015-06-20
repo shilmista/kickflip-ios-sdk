@@ -90,6 +90,11 @@ static NSString * const kKFS3Key = @"kKFS3Key";
 
     NSDictionary *segmentInfo = [_queuedSegments objectForKey:@(_nextSegmentIndexToUpload)];
 
+    if (!segmentInfo) {
+        NSLog(@"there's nothing here yet... hold on! %u", _nextSegmentIndexToUpload);
+        return;
+    }
+
     // Skip uploading files that are currently being written
     if (tsFileCount == 1 && !self.isFinishedRecording) {
         NSLog(@"Skipping upload of ts file currently being recorded: %@ %@", segmentInfo, contents);
@@ -99,7 +104,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     NSString *fileName = [segmentInfo objectForKey:kFileNameKey];
     NSString *fileUploadState = [_files objectForKey:fileName];
     if (![fileUploadState isEqualToString:kUploadStateQueued]) {
-        NSLog(@"Trying to upload file that isn't queued (%@): %@", fileUploadState, segmentInfo);
+        NSLog(@"Trying to upload file that isn't queued (%@): %@ for nextSegmentIndex %u", fileUploadState, segmentInfo, _nextSegmentIndexToUpload);
         return;
     }
 
@@ -207,7 +212,7 @@ static NSString * const kKFS3Key = @"kKFS3Key";
                 NSUInteger segmentIndex = [self indexForFilePrefix:filePrefix];
                 NSDictionary *segmentInfo = @{kFileNameKey: fileName,
                         kFileStartDateKey: [NSDate date]};
-                NSLog(@"new ts file detected: %@", fileName);
+                NSLog(@"new ts file detected: %@ for index %u", fileName, segmentIndex);
                 [_files setObject:kUploadStateQueued forKey:fileName];
                 [_queuedSegments setObject:segmentInfo forKey:@(segmentIndex)];
                 [self uploadNextSegment];
