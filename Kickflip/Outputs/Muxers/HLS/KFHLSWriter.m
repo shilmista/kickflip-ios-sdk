@@ -67,7 +67,8 @@
 - (void) addVideoStreamWithWidth:(int)width height:(int)height {
     _videoStream = [[FFOutputStream alloc] initWithOutputFile:_outputFile outputCodec:@"h264"];
     [_videoStream setupVideoContextWithWidth:width height:height];
-    av_opt_set_int(_outputFile.formatContext->priv_data, "hls_time", _segmentDurationSeconds, 0);
+//    av_opt_set_int(_outputFile.formatContext->priv_data, "hls_time", _segmentDurationSeconds, 0);
+    av_opt_set_int(_outputFile.formatContext, "segment_time", _segmentDurationSeconds, AV_OPT_SEARCH_CHILDREN);
 }
 
 - (void) addAudioStreamWithSampleRate:(int)sampleRate {
