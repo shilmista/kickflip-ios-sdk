@@ -293,4 +293,8 @@ static NSString * const kKFS3Key = @"kKFS3Key";
     });
 }
 
+- (NSUInteger)currentIndex {
+    return _nextSegmentIndexToUpload;
+}
+
 @end

@@ -12,7 +12,7 @@
 @class KFHLSMonitor;
 
 @protocol KFHLSMonitorDelegate <NSObject>
-- (void)monitor:(KFHLSMonitor *)monitor didFinishUploading:(id)sender;
+- (void)monitor:(KFHLSMonitor *)monitor didFinishUploading:(id)sender index:(NSUInteger)index;
 @end
 
 static NSString * const kKFHLSMonitorFinishedUploadingSegmentsNotification = @"kKFHLSFinishedUploadingSegments";

@@ -32,5 +32,6 @@
 
 - (id) initWithDirectoryPath:(NSString*)directoryPath stream:(KFS3Stream*)stream;
 - (void) finishedRecording;
+- (NSUInteger)currentIndex;
 
 @end
