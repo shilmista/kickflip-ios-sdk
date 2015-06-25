@@ -61,7 +61,6 @@ static KFHLSMonitor *_sharedMonitor = nil;
 
 - (void) uploaderHasFinished:(KFHLSUploader*)uploader {
     NSLog(@"Uploader finished, switched to VOD manifest");
-    KFHLSUploader *uploader =  self.hlsUploader[uploader.directoryPath];
     NSUInteger index = uploader.currentIndex;
     dispatch_async(self.monitorQueue, ^{
         [self.hlsUploaders removeObjectForKey:uploader.directoryPath];
